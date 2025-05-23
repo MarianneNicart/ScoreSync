@@ -130,8 +130,6 @@
         app:layout_constraintEnd_toStartOf="@+id/btn_add_players"
         app:layout_constraintHorizontal_bias="0.95"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/btn_player_action"
-        app:layout_constraintVertical_bias="1.0"
         tools:layout_conversion_absoluteHeight="60dp"
         tools:layout_conversion_absoluteWidth="60dp" />
 
@@ -145,25 +143,8 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toEndOf="@+id/btn_add_players"
-        app:layout_constraintTop_toTopOf="@+id/btn_player_action"
-        app:layout_constraintVertical_bias="1.0"
         tools:layout_conversion_absoluteHeight="60dp"
         tools:layout_conversion_absoluteWidth="60dp" />
-
-    <Button
-        android:id="@+id/btn_player_action"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Players Action"
-        android:textSize="15sp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/btn_restart"
-        app:layout_constraintHorizontal_bias="1.0"
-        app:layout_constraintStart_toEndOf="@+id/btn_play_pause"
-        app:layout_constraintTop_toBottomOf="@+id/tv_chess_timer2"
-        app:layout_constraintVertical_bias="0.66"
-        tools:layout_conversion_absoluteHeight="40dp"
-        tools:layout_conversion_absoluteWidth="187dp" />
 
     <Button
         android:id="@+id/btn_add_players"
@@ -173,9 +154,9 @@
         android:textSize="15sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.51"
+        app:layout_constraintHorizontal_bias="0.519"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btn_player_action"
+        app:layout_constraintTop_toBottomOf="@+id/tv_player2_number"
         app:layout_constraintVertical_bias="1.0"
         tools:layout_conversion_absoluteHeight="40dp"
         tools:layout_conversion_absoluteWidth="187dp" />

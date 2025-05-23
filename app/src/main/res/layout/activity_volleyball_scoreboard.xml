@@ -138,6 +138,15 @@
                 android:text="0"
                 android:textColor="#00FF00"
                 android:textSize="48sp" />
+
+            <TextView
+                android:id="@+id/team1Foul"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Fouls: 0"
+                android:textAlignment="center"
+                android:textColor="#D70606"
+                android:textSize="18sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -181,6 +190,15 @@
                 android:text="0"
                 android:textColor="#00FF00"
                 android:textSize="48sp" />
+
+            <TextView
+                android:id="@+id/team2Foul"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Fouls: 0"
+                android:textAlignment="center"
+                android:textColor="#D70606"
+                android:textSize="18sp" />
         </LinearLayout>
 
         <Button

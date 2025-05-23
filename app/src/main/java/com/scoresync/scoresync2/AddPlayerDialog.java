@@ -1,9 +1,14 @@
 package com.scoresync.scoresync2;
 
+import static android.content.Context.MODE_PRIVATE;
+
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
@@ -20,6 +25,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.scoresync.scoresync2.model.Player;
 
@@ -35,6 +41,14 @@ public class AddPlayerDialog extends DialogFragment {
     private final ArrayList<Player> players = new ArrayList<>();
     private String gameId = "";
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
+    private int num = 1;
+    private Context context;
+    private String gameType;
+    private TextView addLabel;
+
+    public AddPlayerDialog(Context context) {
+        this.context = context;
+    }
 
     @NonNull
     @Override
@@ -51,6 +65,9 @@ public class AddPlayerDialog extends DialogFragment {
         playerNameEditText = view.findViewById(R.id.playerNameEditText);
         teamSpinner = view.findViewById(R.id.teamSpinner);
         playersTable = view.findViewById(R.id.playerTable);
+        addLabel = view.findViewById(R.id.apTitle);
+
+        addLabel.setText(gameType);
 
         // Set up buttons
         Button updateTeamsButton = view.findViewById(R.id.updateTeamsButton);
@@ -84,6 +101,11 @@ public class AddPlayerDialog extends DialogFragment {
     private void setupTeamSpinner() {
         String newTeam1 = team1EditText.getText().toString().isEmpty() ? "Team 1" : team1EditText.getText().toString();
         String newTeam2 = team2EditText.getText().toString().isEmpty() ? "Team 2" : team2EditText.getText().toString();
+
+        // Save all to SharedPreferences
+        SharedPreferences.Editor editor = requireContext().getSharedPreferences("currentTeam", MODE_PRIVATE).edit();
+        editor.putString("team1name", newTeam1).apply();
+        editor.putString("team2name", newTeam2).apply();
 
         ArrayList<String> teamOptions = new ArrayList<>();
         teamOptions.add(newTeam1);
@@ -142,6 +164,11 @@ public class AddPlayerDialog extends DialogFragment {
 
         TableRow row = new TableRow(requireContext());
 
+        // Number
+        TextView numText = new TextView(requireContext());
+        numText.setText(String.valueOf(num));
+        numText.setPadding(16, 16, 16, 16);
+
         // Player Name
         TextView nameText = new TextView(requireContext());
         nameText.setText(player.getName());
@@ -163,7 +190,9 @@ public class AddPlayerDialog extends DialogFragment {
         foulText.setPadding(16, 16, 16, 16);
         foulText.setInputType(InputType.TYPE_NULL);
 
+        num += 1;
         // Add all views to the row (including coachText)
+        row.addView(numText);
         row.addView(nameText);
         row.addView(teamText);
         row.addView(coachText);  // NEW
@@ -192,29 +221,48 @@ public class AddPlayerDialog extends DialogFragment {
         gameData.put("coach1", coach1);
         gameData.put("coach2", coach2);
 
-        db.collection("games").document(gameId)
-                .set(gameData)
+        // Get reference to the game document
+        DocumentReference gameRef = db.collection("games").document(gameId);
+
+        gameRef.set(gameData)
                 .addOnSuccessListener(aVoid -> {
+                    Log.d("Firestore", "Game saved at path: " + gameRef.getPath());
+
                     // Save players after game data is saved
                     for (Player player : players) {
                         Map<String, Object> playerData = new HashMap<>();
                         playerData.put("name", player.getName());
                         playerData.put("team", player.getTeam());
-                        playerData.put("coach", player.getCoach());  // NEW
+                        playerData.put("coach", player.getCoach());
                         playerData.put("fouls", player.getFouls());
 
-                        db.collection("games").document(gameId)
-                                .collection("players")
-                                .add(playerData);
+                        // Add player to subcollection and get its path
+                        gameRef.collection("players")
+                                .add(playerData)
+                                .addOnSuccessListener(documentReference -> {
+                                    Log.d("Firestore", "Player saved at path: " + documentReference.getPath());
+
+                                    // Store full path in SharedPreferences
+                                    SharedPreferences.Editor editor = context.getSharedPreferences("currentGame", MODE_PRIVATE).edit();
+                                    editor.putString("game", gameRef.getPath());
+                                    editor.apply();
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e("Firestore", "Error saving player", e);
+                                });
+
                     }
                     dismiss();
                 })
                 .addOnFailureListener(e -> {
-                    // Handle error
+                    Log.e("Firestore", "Error saving game", e);
                 });
     }
-
     public void setGameId(String gameId) {
         this.gameId = gameId;
+    }
+
+    public void setGameType(String gameType) {
+        this.gameType = gameType;
     }
 }

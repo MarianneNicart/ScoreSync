@@ -1,5 +1,7 @@
 package com.scoresync.scoresync2;
 
+import static androidx.core.content.ContentProviderCompat.requireContext;
+
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.media.AudioAttributes;
@@ -68,6 +70,7 @@ public class Basketball_Scoreboard extends AppCompatActivity {
 
     // 🔑 Declare a gameId field so it can be reused across dialogs/features
     private String gameId;
+    private String gameType;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,7 +90,10 @@ public class Basketball_Scoreboard extends AppCompatActivity {
         overtime = getSharedPreferences("ScoreSyncPrefs", MODE_PRIVATE)
                 .getInt("BASKETBALL_OVERTIME", 1);
 
-        timeLeftInMillis = setTime * 60000;
+        SharedPreferences.Editor editor = getSharedPreferences("currentGame", MODE_PRIVATE).edit();
+        editor.putString("game_id", gameId).apply();
+
+        timeLeftInMillis = setTime * 60000L;
 
 
         // Initialize views
@@ -122,8 +128,9 @@ public class Basketball_Scoreboard extends AppCompatActivity {
         // Add Player Button
         Button addPlayerButton = findViewById(R.id.add_player_button);
         addPlayerButton.setOnClickListener(v -> {
-            AddPlayerDialog dialog = new AddPlayerDialog();
+            AddPlayerDialog dialog = new AddPlayerDialog(this);
             dialog.setGameId(gameId);
+            dialog.setGameType("ADD PLAYER (BASKETBALL)");
             dialog.show(getSupportFragmentManager(), "AddPlayerDialog");
         });
 
@@ -334,18 +341,6 @@ public class Basketball_Scoreboard extends AppCompatActivity {
         return period >= setPeriod && team1Score == team2Score;
     }
 
-    private String getCurrentWinnerName(boolean leftWon) {
-        String leftName = team1Label.getText().toString().trim();
-        String rightName = team2Label.getText().toString().trim();
-        if (leftName.isEmpty()) leftName = "Team 1";
-        if (rightName.isEmpty()) rightName = "Team 2";
-        if (!isShuffled) {
-            return leftWon ? leftName : rightName;
-        } else {
-            return leftWon ? rightName : leftName;
-        }
-    }
-
     private void saveGameHistory(boolean leftWon) {
         String leftName = team1Label.getText().toString().trim();
         String rightName = team2Label.getText().toString().trim();
@@ -474,8 +469,8 @@ public class Basketball_Scoreboard extends AppCompatActivity {
                         int team2Fouls = latestFoul.getLong("team2Fouls").intValue();
 
                         runOnUiThread(() -> {
-                            team1FoulDisplay.setText(String.valueOf(team1Fouls));
-                            team2FoulDisplay.setText(String.valueOf(team2Fouls));
+                            team1FoulDisplay.setText("Fouls: " + team1Fouls);
+                            team2FoulDisplay.setText("Fouls: " + team2Fouls);
                         });
                     }
                 })

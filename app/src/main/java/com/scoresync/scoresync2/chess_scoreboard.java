@@ -2,6 +2,7 @@ package com.scoresync.scoresync2;
 
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
@@ -9,6 +10,11 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
+
 import java.util.Locale;
 
 public class chess_scoreboard extends AppCompatActivity {
@@ -27,6 +33,8 @@ public class chess_scoreboard extends AppCompatActivity {
     private boolean isPlayer1Turn = true;
     private boolean isPaused = false;
     private int setTime = 1;
+    private String gameId;
+    private Button addPlayerBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,6 +42,7 @@ public class chess_scoreboard extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_chess_scoreboard);
 
+        gameId = "game_" + System.currentTimeMillis();
         setTime = getSharedPreferences("ScoreSyncPrefs", MODE_PRIVATE)
                 .getInt("CHESS_MINUTES_PER_MATCH", 10);
 
@@ -47,6 +56,7 @@ public class chess_scoreboard extends AppCompatActivity {
         player2Tap = findViewById(R.id.tapleft);
         resetButton = findViewById(R.id.btn_restart);
         pauseButton = findViewById(R.id.btn_play_pause);
+        addPlayerBtn = findViewById(R.id.btn_add_players);
 
         // Set initial clock values
         updateClockText();
@@ -75,6 +85,13 @@ public class chess_scoreboard extends AppCompatActivity {
             } else {
                 pauseClock();
             }
+        });
+
+        addPlayerBtn.setOnClickListener(view -> {
+            AddPlayerDialog dialog = new AddPlayerDialog(this);
+            dialog.setGameId(gameId);
+            dialog.setGameType("ADD PLAYER (CHESS)");
+            dialog.show(getSupportFragmentManager(), "AddPlayerDialog");
         });
 
         // Initialize the clock runnable

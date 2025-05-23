@@ -4,11 +4,6 @@
 
 
     <!-- Back Button (Left Side) -->
-    <item
-        android:id="@+id/action_back"
-        android:icon="@drawable/baseline_back"
-        android:title="Back"
-        app:showAsAction="always"/>
 
 
     <item

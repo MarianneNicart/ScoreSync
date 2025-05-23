@@ -3,6 +3,7 @@ package com.scoresync.scoresync2;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
@@ -12,6 +13,9 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.scoresync.scoresync2.model.GameHistory;
@@ -40,7 +44,15 @@ public class volleyball_scoreboard extends AppCompatActivity {
     private int setsToWin = 2;
     private int volleyballPointsPerSet = 21;
     private boolean isSwapped = false;
-    private int tiebreaker = 2;
+    private String gameId;
+    private int tiebreaker;
+
+    private int team1Fouls = 0;
+    private int team2Fouls = 0;
+    private Button addPlayerBtn;
+    private Button playerActionBtn;
+    private TextView team1FoulDisplay;
+    private TextView team2FoulDisplay;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,11 +77,17 @@ public class volleyball_scoreboard extends AppCompatActivity {
         bestOfCounterv = findViewById(R.id.bestOfCounterV);
         t1set = findViewById(R.id.team1_sets);
         t2set = findViewById(R.id.team2_sets);
+        team1FoulDisplay = findViewById(R.id.team1Foul);
+        team2FoulDisplay = findViewById(R.id.team2Foul);
+        gameId = "game_" + System.currentTimeMillis();
 
         totalSets = getSharedPreferences("ScoreSyncPrefs", MODE_PRIVATE)
                 .getInt("VOLLEYBALL_TOTAL_SETS", 3);
         setsToWin = (totalSets / 2) + 1;
         bestOfCounterv.setText(String.valueOf(totalSets));
+
+        addPlayerBtn = findViewById(R.id.addPlayersButton);
+        playerActionBtn = findViewById(R.id.playersActionButton);
 
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
@@ -116,6 +134,22 @@ public class volleyball_scoreboard extends AppCompatActivity {
         });
 
         shuffleButton.setOnClickListener(v -> switchSides());
+
+        addPlayerBtn.setOnClickListener(view -> {
+            AddPlayerDialog dialog = new AddPlayerDialog(this);
+            dialog.setGameId(gameId);
+            dialog.setGameType("ADD PLAYER (VOLLEYBALL)");
+            dialog.show(getSupportFragmentManager(), "AddPlayerDialog");
+        });
+
+        playerActionBtn.setOnClickListener(view -> {
+            AddFoulDialog dialog = new AddFoulDialog(this, (team1Fouls, team2Fouls) -> {
+                this.team1Fouls = team1Fouls;
+                this.team2Fouls = team2Fouls;
+                updateFoulsDisplay();
+            });
+            dialog.show();
+        });
     }
 
     private void checkSetWin() {
@@ -238,10 +272,37 @@ public class volleyball_scoreboard extends AppCompatActivity {
         team1Label.setText(team2Label.getText());
         team2Label.setText(tempLabel);
 
+        int tempFoul = team1Fouls;
+        team1Fouls = team2Fouls;
+        team2Fouls = tempFoul;
+
         // Update swapped state
         isSwapped = !isSwapped;
 
         updateScores();
+        updateFoulsDisplay();
+    }
+
+    public void updateFoulsDisplay() {
+        FirebaseFirestore.getInstance().collection("fouls")
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (!queryDocumentSnapshots.isEmpty()) {
+                        DocumentSnapshot latestFoul = queryDocumentSnapshots.getDocuments().get(0);
+                        int team1Fouls = latestFoul.getLong("team1Fouls").intValue();
+                        int team2Fouls = latestFoul.getLong("team2Fouls").intValue();
+
+                        runOnUiThread(() -> {
+                            team1FoulDisplay.setText("Fouls: " + team1Fouls);
+                            team2FoulDisplay.setText("Fouls: " + team2Fouls);
+                        });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Firestore", "Error getting fouls", e);
+                });
     }
 
     @Override

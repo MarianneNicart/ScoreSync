@@ -1,9 +1,13 @@
 package com.scoresync.scoresync2;
 
 
+import static android.content.Context.MODE_PRIVATE;
+
 import android.app.Dialog;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.widget.AdapterView;
@@ -15,8 +19,11 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 
 public class AddFoulDialog extends Dialog {
+
 
     private Context context;
     private int skibidiFoulCount = 0;
@@ -34,11 +42,18 @@ public class AddFoulDialog extends Dialog {
     private List<String> sigmaPlayers = new ArrayList<>();
     private String team1Name = "Meliodas"; // Make these match your teams
     private String team2Name = "Zeldris";
+    FirebaseFirestore db = FirebaseFirestore.getInstance();
+    CollectionReference playersRef = db.collection("players");
+
+    List<String> skibidiPlayersArray = new ArrayList<>();
+    private String gameId;
 
     public AddFoulDialog(@NonNull Context context) {
         super(context);
         this.context = context;
     }
+
+    private String playerDir;
 
     public interface FoulUpdateListener {
         void onFoulsUpdated(int team1Fouls, int team2Fouls);
@@ -60,12 +75,37 @@ public class AddFoulDialog extends Dialog {
         Button btnAddSigmaFoul = findViewById(R.id.btnAddSigmaFoul);
         Button btnSave = findViewById(R.id.btnSaveFouls);
         Button btnClose = findViewById(R.id.btnCloseFouls);
+        TextView team1Label = findViewById(R.id.team1_lbl);
+        TextView team2Label = findViewById(R.id.team2_lbl);
 
+        team1Name = context.getSharedPreferences("currentTeam", MODE_PRIVATE)
+                .getString("team1name", "Team 1");
 
+        team2Name = context.getSharedPreferences("currentTeam", MODE_PRIVATE)
+                .getString("team2name", "Team 2");
+
+        SharedPreferences prefs = context.getSharedPreferences("currentGame", MODE_PRIVATE);
+        playerDir = prefs.getString("game", "players");
+        Log.d("SharedPrefs", "Retrieved game path: " + playerDir);
+
+        gameId = context.getSharedPreferences("currentGame", MODE_PRIVATE)
+                .getString("game_id", "game_0");
+
+        team1Label.setText(team1Name);
+        team2Label.setText(team2Name);
 
         // Load players from Firestore
         loadPlayers(team1Name, skibidiPlayers, spinnerSkibidi, btnAddSkibidiFoul);
         loadPlayers(team2Name, sigmaPlayers, spinnerSigma, btnAddSigmaFoul);
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                context,
+                android.R.layout.simple_spinner_item,
+                skibidiPlayers
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerSkibidi.setAdapter(adapter);
+
 
         // Spinner selections
         spinnerSkibidi.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -119,7 +159,8 @@ public class AddFoulDialog extends Dialog {
 
     private void loadPlayers(String teamName, List<String> playersList, Spinner spinner, Button addButton) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("players")
+        Log.d("Firestore", playerDir);
+        db.collection(playerDir + "/players/")
                 .whereEqualTo("team", teamName)
                 .get()
                 .addOnCompleteListener(task -> {
@@ -148,25 +189,17 @@ public class AddFoulDialog extends Dialog {
     }
 
     private void saveFoulsToFirestore() {
+        // Validate player selections
         if (selectedSkibidiPlayer.isEmpty() || selectedSigmaPlayer.isEmpty() ||
                 selectedSkibidiPlayer.equals("No players available") ||
                 selectedSigmaPlayer.equals("No players available")) {
             Toast.makeText(context, "Please select valid players from both teams", Toast.LENGTH_SHORT).show();
             return;
         }
-        Map<String, Object> foulData = null;
-        FirebaseFirestore db = null;
-        db.collection("fouls")
-                .add(foulData)
-                .addOnSuccessListener(documentReference -> {
-                    if (listener != null) {
-                        listener.onFoulsUpdated(skibidiFoulCount, sigmaFoulCount);
-                    }
-                    dismiss();
-                });
 
-
-        foulData = new HashMap<>();
+        // Prepare foul data
+        Map<String, Object> foulData = new HashMap<>();
+        foulData.put("gameId", gameId);
         foulData.put("team1", team1Name);
         foulData.put("team1Player", selectedSkibidiPlayer);
         foulData.put("team1Fouls", skibidiFoulCount);
@@ -176,15 +209,47 @@ public class AddFoulDialog extends Dialog {
         foulData.put("timestamp", System.currentTimeMillis());
         foulData.put("sportType", "Basketball");
 
-        db = FirebaseFirestore.getInstance();
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // First check if a document with this gameId already exists
         db.collection("fouls")
-                .add(foulData)
-                .addOnSuccessListener(documentReference -> {
-                    Toast.makeText(context, "Fouls saved successfully", Toast.LENGTH_SHORT).show();
-                    dismiss();
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(context, "Error saving fouls: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                .whereEqualTo("gameId", gameId)
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        QuerySnapshot querySnapshot = task.getResult();
+                        if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                            // Document exists - update it
+                            DocumentSnapshot document = querySnapshot.getDocuments().get(0);
+                            document.getReference().update(foulData)
+                                    .addOnSuccessListener(aVoid -> {
+                                        Toast.makeText(context, "Fouls updated successfully", Toast.LENGTH_SHORT).show();
+                                        if (listener != null) {
+                                            listener.onFoulsUpdated(skibidiFoulCount, sigmaFoulCount);
+                                        }
+                                        dismiss();
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Toast.makeText(context, "Error updating fouls: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                    });
+                        } else {
+                            // Document doesn't exist - create new one
+                            db.collection("fouls")
+                                    .add(foulData)
+                                    .addOnSuccessListener(documentReference -> {
+                                        Toast.makeText(context, "Fouls saved successfully", Toast.LENGTH_SHORT).show();
+                                        if (listener != null) {
+                                            listener.onFoulsUpdated(skibidiFoulCount, sigmaFoulCount);
+                                        }
+                                        dismiss();
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Toast.makeText(context, "Error saving fouls: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                    });
+                        }
+                    } else {
+                        Toast.makeText(context, "Error checking fouls: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -204,4 +269,7 @@ public class AddFoulDialog extends Dialog {
         this.listener = listener;
     }
 
+    public void setGameId(String gameId) {
+        this.gameId = gameId;
+    }
 }
